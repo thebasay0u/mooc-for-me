@@ -6,7 +6,8 @@ import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.scene.Scene;
-import javafx.scene.chart.LineChart;
+
+import javafx.scene.chart.BarChart;
 import javafx.scene.chart.CategoryAxis;
 import javafx.scene.chart.NumberAxis;
 import javafx.scene.chart.XYChart;
@@ -41,24 +42,24 @@ public class CyclingStatisticsApplication extends Application {
         xAxis.setLabel("Year / Month");
         yAxis.setLabel("Cyclists");
 
-        
-        LineChart<String, Number> chart = new LineChart<>(xAxis, yAxis);
-        chart.setLegendVisible(false);
+        BarChart<String, Number> barChart = new BarChart<>(xAxis, yAxis);
+
+        barChart.setLegendVisible(false);
 
         list.setOnMouseClicked((MouseEvent event) -> {
             String chosen = list.getSelectionModel().getSelectedItem();
             Map<String, Integer> values = statistics.monthlyCyclists(chosen);
-            chart.getData().clear();
+            barChart.getData().clear();
             XYChart.Series chartData = new XYChart.Series();
 
             values.keySet().stream().forEach(time -> {
                 chartData.getData().add(new XYChart.Data(time, values.get(time)));
             });
 
-            chart.getData().add(chartData);
+            barChart.getData().add(chartData);
         });
 
-        gridPane.add(chart, 1, 0, 1, 2);
+        gridPane.add(barChart, 1, 0, 1, 2);
 
         Scene view = new Scene(gridPane);
 
