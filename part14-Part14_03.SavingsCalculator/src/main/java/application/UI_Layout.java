@@ -34,8 +34,8 @@ public class UI_Layout {
     private double _currentSavingsAmount;
     private double _currentInterestAmount;
 
-    private XYChart.Series<Number, Number> _savingsData;
-    private XYChart.Series<Number, Number> _interestPlusSavingsData;
+    private XYChart.Series<Number, Number> _savingsSeries;
+    private XYChart.Series<Number, Number> _interestPlusSavingsSeries;
 
     // private ArrayList<Double> _compoundSavings;
     // private ArrayList<Double> _compoundInterest;
@@ -48,8 +48,8 @@ public class UI_Layout {
         this._components = new UI_Components();
         this._root = new BorderPane();
 
-        this._savingsData = new XYChart.Series<>();
-        this._interestPlusSavingsData = new XYChart.Series<>();
+        this._savingsSeries = new XYChart.Series<>();
+        this._interestPlusSavingsSeries = new XYChart.Series<>();
 
         this._currentSavingsAmount = 25;
         this._currentInterestAmount = 0;
@@ -62,13 +62,21 @@ public class UI_Layout {
         _root.setTop(buildVBox());
 
         LineChart<Number, Number> chart = savingsGrowthChart();
-        chart.getData().add(_savingsData);
-        chart.getData().add(_interestPlusSavingsData);
+        chart.getData().add(_savingsSeries);
+        chart.getData().add(_interestPlusSavingsSeries);
 
-        updateSavingsChart(this.getCurrentSavingsAmount(), _savingsData);
-        updateInterestChart(getCurrentInterestAmount(), _interestPlusSavingsData);
+        updateSavingsChart(getCurrentSavingsAmount(), _savingsSeries);
+        // updateInterestChart(getCurrentInterestAmount(), _interestPlusSavingsSeries);
         _root.setCenter(chart);
 
+    }
+
+    private void setCurrentSavingsAmount(double amountToSaveMonthly) {
+        this._currentSavingsAmount = amountToSaveMonthly;
+    }
+
+    private void setCurrentInterestRate(double interestRate) {
+        this._currentInterestAmount = interestRate;
     }
 
     // ! PUBLIC METHODS
@@ -98,21 +106,27 @@ public class UI_Layout {
 
     }
 
-    private void updateSavingsChart(double value, XYChart.Series<Number, Number> chartSeries) {
+    private void updateSavingsChart(double currentSavingsAmount, XYChart.Series<Number, Number> chartSeries) {
         chartSeries.getData().clear();
-        AtomicInteger yearCounter = new AtomicInteger();
-        ArrayList<Double> compoundSavings = _helper.getCompoundSavings(value);
-        compoundSavings.stream().forEach(savingsAmount -> {
-            chartSeries.getData().add(new XYChart.Data<Number, Number>(yearCounter.getAndIncrement(), savingsAmount));
-        });
+        // AtomicInteger yearCounter = new AtomicInteger();
+        // ArrayList<Double> compoundSavings = _helper.getCompoundSavings(value);
+        Map<Integer, Double> simpleSavings = _helper.calculateSavings(currentSavingsAmount);
+        // compoundSavings.stream().forEach(savingsAmount -> {
+        // chartSeries.getData().add(new XYChart.Data<Number,
+        // Number>(yearCounter.getAndIncrement(), savingsAmount));
+        // });
+        simpleSavings.keySet().stream()
+                .forEach(year -> {
+                    chartSeries.getData().add(new XYChart.Data<Number, Number>(year, simpleSavings.get(year)));
+                });
 
     }
 
-    private void updateInterestChart(double interestAmount,
+    private void updateInterestChart(double savingsAmount, double interestAmount,
             XYChart.Series<Number, Number> chartSeries) {
         chartSeries.getData().clear();
         // AtomicInteger yearCounter = new AtomicInteger();
-        Map<Integer, Double> interestMap = _helper.calculateInterest(30, getCurrentSavingsAmount(), interestAmount);
+        Map<Integer, Double> interestMap = _helper.calculateInterest(getCurrentSavingsAmount(), interestAmount);
 
         for (Integer i : interestMap.keySet()) {
             chartSeries.getData().add(new XYChart.Data<Number, Number>(i, interestMap.get(i)));
@@ -129,10 +143,12 @@ public class UI_Layout {
         Slider slider = _components.getSavingsSlider();
 
         slider.valueProperty().addListener((obs, oldValue, newValue) -> {
-            if (!slider.isValueChanging()) {
+            if (!slider.isValueChanging() && getCurrentInterestAmount() > 0) {
                 right.setText(String.format("%.2f", slider.getValue()));
-                updateSavingsChart(newValue.doubleValue(), _savingsData);
-                updateInterestChart(getCurrentInterestAmount(), _interestPlusSavingsData);
+                updateSavingsChart(newValue.doubleValue(), _savingsSeries);
+
+                setCurrentSavingsAmount(Double.parseDouble(String.format("%.2f", slider.getValue())));
+                updateInterestChart(getCurrentSavingsAmount(), getCurrentInterestAmount(), _interestPlusSavingsSeries);
 
             }
         });
@@ -140,7 +156,13 @@ public class UI_Layout {
         slider.valueChangingProperty().addListener((obs, wasChanging, isCurrentlyChanging) -> {
             if (!isCurrentlyChanging) {
                 right.setText(String.format("%.2f", slider.getValue()));
-                updateSavingsChart(slider.getValue(), _savingsData);
+                updateSavingsChart(slider.getValue(), _savingsSeries);
+                setCurrentSavingsAmount(Double.parseDouble(String.format("%.2f", slider.getValue())));
+                if (getCurrentInterestAmount() > 0) {
+                    updateInterestChart(getCurrentSavingsAmount(), getCurrentInterestAmount(),
+                            _interestPlusSavingsSeries);
+                }
+
             }
         });
 
@@ -162,11 +184,11 @@ public class UI_Layout {
         Slider slider = _components.getInterestSlider();
 
         slider.valueProperty().addListener((obs, oldValue, newValue) -> {
-            if (!slider.isValueChanging()) {
+            if (!slider.isValueChanging() && slider.getValue() > 0) {
                 right.setText(String.format("%.1f", slider.getValue()));
-
-                this._currentInterestAmount = newValue.doubleValue();
-                updateInterestChart(newValue.doubleValue(), _interestPlusSavingsData);
+                setCurrentInterestRate(newValue.doubleValue());
+                ;
+                updateInterestChart(getCurrentSavingsAmount(), getCurrentInterestAmount(), _interestPlusSavingsSeries);
 
             }
         });
@@ -174,10 +196,13 @@ public class UI_Layout {
         slider.valueChangingProperty().addListener((obs, wasChanging, isCurrentlyChanging) -> {
             if (!isCurrentlyChanging) {
                 right.setText(String.format("%.2f", slider.getValue()));
-                this._currentInterestAmount = slider.getValue();
+                setCurrentInterestRate(slider.getValue());
+                if (getCurrentInterestAmount() > 0)
+                    updateInterestChart(getCurrentSavingsAmount(), getCurrentInterestAmount(),
+                            _interestPlusSavingsSeries);
 
             }
-            updateInterestChart(slider.getValue(), _interestPlusSavingsData);
+
         });
 
         pane.setLeft(left);
